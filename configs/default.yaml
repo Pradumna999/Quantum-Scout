@@ -1,0 +1,39 @@
+# Q-Scout default configuration. Every key is optional; omitted keys use the defaults in
+# src/qscout/config.py. The config hash (see `qscout.config.config_hash`) is stored with every
+# result, forecast and model bundle.
+horizons: [1, 2, 3, 7]        # in calibration cycles, not wall-clock hours
+alpha: 0.10                   # miscoverage -> 90% prediction intervals
+split_fracs: [0.6, 0.2]       # train, val (per backend); test is the remainder
+holdout_backends: []          # whole backends excluded from fitting (cross-device transfer, E6)
+min_history: 20               # first cycles of each backend are not used as forecast origins
+seed: 0
+
+# drift / features
+jump_k: 4.0
+jump_window: 30
+scale_floor: 0.005
+ph_delta: 0.25
+ph_lambda: 8.0
+ph_min_n: 15
+
+# uncertainty
+aci_gamma: 0.01
+min_group: 50
+
+# trust
+large_error_pct: 0.90
+trust_fprs: [0.25, 0.10]      # false-alarm rates that define the caution / unreliable tiers
+
+# statistics
+block_len: 7
+n_boot: 200
+
+lgbm:
+  n_estimators: 300
+  learning_rate: 0.05
+  num_leaves: 31
+  min_child_samples: 100
+  subsample: 0.8
+  subsample_freq: 1
+  colsample_bytree: 0.8
+  reg_lambda: 1.0

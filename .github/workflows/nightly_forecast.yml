@@ -1,0 +1,33 @@
+# Issues forward-test forecasts from the newest calibration and scores earlier ones.
+# Needs a trained bundle at models/bundle.joblib on the data branch (run `qscout train` and commit it).
+name: nightly-forecast
+on:
+  schedule:
+    - cron: "47 4 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out data branch
+        run: |
+          git fetch origin data
+          git worktree add data-wt origin/data
+          cd data-wt && git checkout -B data origin/data
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: qscout build-curated --root data-wt/data
+      - run: qscout nightly --root data-wt/data --model data-wt/models/bundle.joblib
+      - run: qscout score --root data-wt/data
+      - name: Commit forecasts and scores
+        working-directory: data-wt
+        run: |
+          git config user.name "qscout-bot"
+          git config user.email "qscout-bot@users.noreply.github.com"
+          git add -A data
+          git diff --cached --quiet || (git commit -m "forecasts $(date -u +%FT%TZ)" && git push origin data)

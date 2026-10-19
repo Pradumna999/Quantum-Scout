@@ -1,0 +1,42 @@
+# Downloads current IBM calibrations twice a day. Calibrations are keyed by their own timestamp,
+# so repeated downloads between two calibrations are stored once.
+# Data are committed to a separate `data` branch to keep code history clean.
+# Requires repository secrets: IBM_QUANTUM_TOKEN and (optional) IBM_QUANTUM_INSTANCE.
+name: nightly-ingest
+on:
+  schedule:
+    - cron: "17 3,15 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare data branch
+        run: |
+          git fetch origin data || true
+          if git rev-parse --verify origin/data >/dev/null 2>&1; then
+            git worktree add data-wt origin/data
+            cd data-wt && git checkout -B data origin/data
+          else
+            git worktree add --orphan -b data data-wt
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[ibm]"
+      - name: Ingest
+        env:
+          QISKIT_IBM_TOKEN: ${{ secrets.IBM_QUANTUM_TOKEN }}
+          QISKIT_IBM_INSTANCE: ${{ secrets.IBM_QUANTUM_INSTANCE }}
+          QISKIT_IBM_CHANNEL: ibm_quantum_platform
+        run: qscout ingest-ibm --root data-wt/data
+      - name: Commit new snapshots
+        working-directory: data-wt
+        run: |
+          git config user.name "qscout-bot"
+          git config user.email "qscout-bot@users.noreply.github.com"
+          git add -A data
+          git diff --cached --quiet || (git commit -m "snapshots $(date -u +%FT%TZ)" && git push origin data)
